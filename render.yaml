@@ -1,0 +1,139 @@
+databases:
+  - name: findmypet-db
+    plan: free
+    databaseName: findmypet_production
+    postgresMajorVersion: 16
+    # O Render dá acesso de superusuário — CREATE EXTENSION postgis funciona normalmente
+
+services:
+  # ── Rails API ────────────────────────────────────────────────────────────────
+  - type: web
+    name: findmypet-api
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: findmypet-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false        # criar conta grátis em upstash.com e colar a URL aqui
+      - key: DEVISE_JWT_SECRET_KEY
+        generateValue: true
+      - key: RAILS_MASTER_KEY
+        sync: false        # conteúdo de api/config/master.key (não está no git)
+      - key: CORS_ORIGINS
+        sync: false        # ex: https://findmypet-web.onrender.com
+      - key: EVOLUTION_API_URL
+        sync: false        # ex: https://findmypet-evolution.onrender.com
+      - key: EVOLUTION_API_KEY
+        sync: false
+      - key: EVOLUTION_INSTANCE
+        value: findmypet
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: auto
+      - key: AWS_BUCKET
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false        # para Cloudflare R2: https://<account_id>.r2.cloudflarestorage.com
+
+  # ── Sidekiq (background worker) ──────────────────────────────────────────────
+  # Atenção: workers não têm plano gratuito no Render (mínimo starter ~$7/mês).
+  # Para testar sem notificações WhatsApp, pode comentar este bloco inteiro.
+  - type: worker
+    name: findmypet-sidekiq
+    runtime: docker
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
+    dockerCommand: bundle exec sidekiq
+    plan: starter
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: findmypet-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false
+      - key: DEVISE_JWT_SECRET_KEY
+        fromService:
+          name: findmypet-api
+          type: web
+          envVarKey: DEVISE_JWT_SECRET_KEY
+      - key: RAILS_MASTER_KEY
+        sync: false
+      - key: EVOLUTION_API_URL
+        sync: false
+      - key: EVOLUTION_API_KEY
+        sync: false
+      - key: EVOLUTION_INSTANCE
+        value: findmypet
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        value: auto
+      - key: AWS_BUCKET
+        sync: false
+      - key: AWS_ENDPOINT
+        sync: false
+
+  # ── Next.js frontend ─────────────────────────────────────────────────────────
+  # NEXT_PUBLIC_* são baked no build. Após o primeiro deploy:
+  #   1. Copie a URL do findmypet-api (ex: https://findmypet-api.onrender.com)
+  #   2. Preencha NEXT_PUBLIC_API_URL no dashboard
+  #   3. Redeploy este serviço para aplicar
+  - type: web
+    name: findmypet-web
+    runtime: docker
+    dockerfilePath: ./web/Dockerfile
+    dockerContext: ./web
+    plan: free
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false        # ex: https://findmypet-api.onrender.com
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false        # ex: https://findmypet-web.onrender.com
+
+  # ── Evolution API (WhatsApp) ──────────────────────────────────────────────────
+  # Aviso: no plano free o serviço duerme após 15 min de inatividade → perde a
+  # sessão do WhatsApp. Para manter a sessão ativa é necessário plano pago ou
+  # usar um cron externo (ex: UptimeRobot) para fazer ping a cada 10 min.
+  - type: web
+    name: findmypet-evolution
+    runtime: docker
+    image:
+      url: docker.io/atendai/evolution-api:latest
+    plan: free
+    disk:
+      name: evolution-instances
+      mountPath: /evolution/instances
+      sizeGB: 1
+    envVars:
+      - key: SERVER_URL
+        sync: false        # ex: https://findmypet-evolution.onrender.com
+      - key: AUTHENTICATION_TYPE
+        value: apikey
+      - key: AUTHENTICATION_API_KEY
+        sync: false
+      - key: DATABASE_ENABLED
+        value: "false"
+      - key: STORE_MESSAGES
+        value: "false"
+      - key: STORE_MESSAGE_UP
+        value: "false"
+      - key: STORE_CONTACTS
+        value: "false"
+      - key: STORE_CHATS
+        value: "false"
