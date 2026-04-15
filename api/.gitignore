@@ -1,0 +1,26 @@
+# Bundler
+/.bundle
+/vendor/bundle
+
+# Rails
+/log/*
+!/log/.keep
+/tmp/*
+!/tmp/.keep
+/storage/*
+!/storage/.keep
+
+# Credentials / secrets
+/config/credentials.yml.enc
+/config/master.key
+.env*
+!.env.example
+
+# Node / assets
+/node_modules
+
+# Test coverage
+/coverage
+
+# macOS
+.DS_Store

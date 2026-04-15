@@ -1,0 +1,43 @@
+source "https://rubygems.org"
+
+gem "rails", "~> 8.1.1"
+gem "pg", "~> 1.1"
+gem "puma", ">= 5.0"
+
+# PostGIS
+gem "rgeo"
+gem "rgeo-activerecord"
+gem "activerecord-postgis-adapter"
+
+# Auth
+gem "devise"
+gem "devise-jwt"
+gem "bcrypt", "~> 3.1.7"
+
+# CORS
+gem "rack-cors"
+
+# Background jobs
+gem "sidekiq"
+
+# HTTP client (Evolution API)
+gem "faraday"
+
+# Image processing (Active Storage)
+gem "image_processing", "~> 1.2"
+
+# Windows does not include zoneinfo files, so bundle the tzinfo-data gem
+gem "tzinfo-data", platforms: %i[ windows jruby ]
+
+# Reduces boot times through caching; required in config/boot.rb
+gem "bootsnap", require: false
+
+group :development, :test do
+  gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+  gem "bundler-audit", require: false
+  gem "brakeman", require: false
+  gem "rubocop-rails-omakase", require: false
+  gem "factory_bot_rails"
+  gem "faker"
+  gem "webmock"
+end
