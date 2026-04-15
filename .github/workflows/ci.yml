@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -82,3 +82,35 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+  # ─── Deploy → Render (só em push para main) ───────────────────────────────
+  # Pré-requisito: adicionar os Deploy Hook URLs como secrets no GitHub:
+  #   Settings → Secrets and variables → Actions → New repository secret
+  #
+  #   RENDER_DEPLOY_HOOK_API       → Render > findmypet-api      > Settings > Deploy Hook
+  #   RENDER_DEPLOY_HOOK_SIDEKIQ   → Render > findmypet-sidekiq  > Settings > Deploy Hook
+  #   RENDER_DEPLOY_HOOK_WEB       → Render > findmypet-web      > Settings > Deploy Hook
+  #   RENDER_DEPLOY_HOOK_EVOLUTION → Render > findmypet-evolution > Settings > Deploy Hook
+  deploy:
+    name: "Deploy → Render"
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      # API primeiro — o entrypoint roda db:prepare antes de iniciar o servidor
+      - name: Deploy API
+        run: curl -fsS --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_API }}"
+
+      # Aguarda o suficiente para a API terminar as migrations antes do Sidekiq subir
+      - name: Aguardar API inicializar
+        run: sleep 30
+
+      - name: Deploy Sidekiq
+        run: curl -fsS --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_SIDEKIQ }}"
+
+      - name: Deploy Web
+        run: curl -fsS --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_WEB }}"
+
+      - name: Deploy Evolution API
+        run: curl -fsS --retry 3 -X POST "${{ secrets.RENDER_DEPLOY_HOOK_EVOLUTION }}"
