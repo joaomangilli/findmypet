@@ -47,19 +47,37 @@ docker compose up -d   # sobe PostgreSQL (5434), Redis (6379), Evolution API (80
 
 **1. `db/structure.sql` — pg_dump versão mismatch**
 `pg_dump` local é v14, PostgreSQL no Docker é v16. Nunca rodar `db:schema:dump` localmente.
-Para regenerar `structure.sql`:
+Para regenerar `structure.sql` (dump só do schema public + extensão postgis):
 ```bash
+# 1. Dump apenas do schema public (exclui tiger/topology que causam problemas no CI)
 docker exec findmypet-db-1 pg_dump --schema-only --no-privileges --no-owner \
-  -T geography_columns -T geometry_columns -T spatial_ref_sys -T topology -T layer \
+  -n public \
   -h localhost -U postgres findmypet_development > api/db/structure.sql
+
+# 2. Inserir CREATE EXTENSION postgis logo após o COMMENT ON SCHEMA public
+sed -i '' '/^COMMENT ON SCHEMA public/a\\
+\
+\
+--\
+-- Name: postgis; Type: EXTENSION; Schema: -; Owner: -\
+--\
+\
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;\
+' api/db/structure.sql
+
+# 3. Corrigir CREATE SCHEMA (pg_dump usa CREATE SCHEMA public sem IF NOT EXISTS)
+sed -i '' 's/^CREATE SCHEMA public;/CREATE SCHEMA IF NOT EXISTS public;/' api/db/structure.sql
+
+# 4. Adicionar SET search_path e versões de migrations no final
+echo "" >> api/db/structure.sql
+echo "SET search_path TO public;" >> api/db/structure.sql
+echo "" >> api/db/structure.sql
 docker exec findmypet-db-1 psql -h localhost -U postgres -d findmypet_development -t \
-  -c "SELECT 'INSERT INTO schema_migrations (version) VALUES (''' || version || ''');' \
+  -c "SELECT ' INSERT INTO schema_migrations (version) VALUES (''' || version || ''');' \
       FROM schema_migrations ORDER BY version;" >> api/db/structure.sql
-# Necessário para CI: postgis/postgis image já cria esses schemas no template
-sed -i '' 's/^CREATE SCHEMA tiger;/CREATE SCHEMA IF NOT EXISTS tiger;/' api/db/structure.sql
-sed -i '' 's/^CREATE SCHEMA tiger_data;/CREATE SCHEMA IF NOT EXISTS tiger_data;/' api/db/structure.sql
-sed -i '' 's/^CREATE SCHEMA topology;/CREATE SCHEMA IF NOT EXISTS topology;/' api/db/structure.sql
 ```
+
+**Porque:** `pg_dump` define `search_path = ''` (linha 13 do dump). As versões de migration são inseridas sem qualificador de schema (`schema_migrations`, não `public.schema_migrations`). Com search_path vazio, PostgreSQL não resolve o nome. O `SET search_path TO public;` precisa vir logo antes dos INSERTs.
 
 **2. PostGIS no test DB**
 A migração `20260414191505_enable_postgis.rb` habilita a extensão antes de criar tabelas com colunas `geography`. Sem ela, `create_announcements` falha com `type "geography" does not exist`.
