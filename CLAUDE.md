@@ -55,6 +55,10 @@ docker exec findmypet-db-1 pg_dump --schema-only --no-privileges --no-owner \
 docker exec findmypet-db-1 psql -h localhost -U postgres -d findmypet_development -t \
   -c "SELECT 'INSERT INTO schema_migrations (version) VALUES (''' || version || ''');' \
       FROM schema_migrations ORDER BY version;" >> api/db/structure.sql
+# Necessário para CI: postgis/postgis image já cria esses schemas no template
+sed -i '' 's/^CREATE SCHEMA tiger;/CREATE SCHEMA IF NOT EXISTS tiger;/' api/db/structure.sql
+sed -i '' 's/^CREATE SCHEMA tiger_data;/CREATE SCHEMA IF NOT EXISTS tiger_data;/' api/db/structure.sql
+sed -i '' 's/^CREATE SCHEMA topology;/CREATE SCHEMA IF NOT EXISTS topology;/' api/db/structure.sql
 ```
 
 **2. PostGIS no test DB**
