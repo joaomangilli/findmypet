@@ -1,0 +1,18 @@
+{
+	email {$CADDY_EMAIL}
+}
+
+# Frontend
+{$DOMAIN} {
+	reverse_proxy web:3000
+}
+
+# Rails API
+api.{$DOMAIN} {
+	reverse_proxy api:80
+}
+
+# Evolution API (WhatsApp admin + webhooks)
+wa.{$DOMAIN} {
+	reverse_proxy evolution:8080
+}

@@ -23,8 +23,9 @@ gem "sidekiq"
 # HTTP client (Evolution API)
 gem "faraday"
 
-# Image processing (Active Storage)
+# Image processing + S3-compatible storage (Active Storage)
 gem "image_processing", "~> 1.2"
+gem "aws-sdk-s3", require: false
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
