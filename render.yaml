@@ -110,16 +110,14 @@ services:
   # Aviso: no plano free o serviço duerme após 15 min de inatividade → perde a
   # sessão do WhatsApp. Para manter a sessão ativa é necessário plano pago ou
   # usar um cron externo (ex: UptimeRobot) para fazer ping a cada 10 min.
+  # Nota: disk persistente requer plano pago — sem ele a sessão do WhatsApp é
+  # perdida a cada redeploy (normal para testar, problema em produção).
   - type: web
     name: findmypet-evolution
     runtime: docker
     image:
       url: docker.io/atendai/evolution-api:latest
     plan: free
-    disk:
-      name: evolution-instances
-      mountPath: /evolution/instances
-      sizeGB: 1
     envVars:
       - key: SERVER_URL
         sync: false        # ex: https://findmypet-evolution.onrender.com
