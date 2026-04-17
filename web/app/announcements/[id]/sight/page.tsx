@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { getStoredUser } from "@/lib/auth";
+import { isValidBrazilianPhone, normalizePhone, PHONE_ERROR } from "@/lib/phone";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -35,10 +36,18 @@ export default function SightingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (form.reporter_phone && !isValidBrazilianPhone(form.reporter_phone)) {
+      setError(PHONE_ERROR);
+      return;
+    }
+    const normalizedPhone = form.reporter_phone
+      ? normalizePhone(form.reporter_phone)
+      : "";
     setLoading(true);
     try {
       await api.createSighting(id, {
         ...form,
+        reporter_phone: normalizedPhone || undefined,
         seen_at: new Date(form.seen_at).toISOString(),
         lat: selectedLat ?? undefined,
         lng: selectedLng ?? undefined,

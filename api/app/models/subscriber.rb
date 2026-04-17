@@ -1,7 +1,11 @@
 class Subscriber < ApplicationRecord
   has_many :whatsapp_notifications, dependent: :destroy
 
-  validates :phone, presence: true, uniqueness: true
+  # Celular brasileiro: +55 + DDD (2 dígitos) + 9XXXXXXXX (9 dígitos)
+  PHONE_FORMAT = /\A\+55[1-9][1-9]\d{9}\z/
+
+  validates :phone, presence: true, uniqueness: true,
+                    format: { with: PHONE_FORMAT, message: "deve ser um celular brasileiro válido (+55 DDD 9XXXX-XXXX)" }
   validates :name,  presence: true
   validates :notification_radius_km, numericality: { greater_than: 0, less_than_or_equal_to: 100 }
 

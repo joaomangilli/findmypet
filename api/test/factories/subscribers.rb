@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :subscriber do
-    sequence(:phone) { |n| "+5521888#{n.to_s.rjust(5, "0")}" }
+    sequence(:phone) { |n| "+5521988#{n.to_s.rjust(6, "0")}" }
     name { Faker::Name.name }
     address { Faker::Address.street_address }
     lat  { -23.5 + rand * 0.2 }

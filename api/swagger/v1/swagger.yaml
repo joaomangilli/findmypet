@@ -1,0 +1,835 @@
+openapi: 3.0.1
+info:
+  title: FindMyPet API
+  description: |
+    API para encontrar pets perdidos. Permite criar anúncios de pets perdidos,
+    receber notificações via WhatsApp e reportar avistamentos.
+  version: v1
+
+servers:
+  - url: /
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT obtido via POST /api/v1/auth/verify_otp
+
+  schemas:
+    # ── Shared ──────────────────────────────────────────────────────────────
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Telefone é obrigatório
+
+    # ── User ────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        phone:
+          type: string
+          example: "+5511999990000"
+        name:
+          type: string
+          example: João Silva
+
+    # ── Subscriber ──────────────────────────────────────────────────────────
+    Subscriber:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 42
+        phone:
+          type: string
+          example: "+5511999990000"
+        name:
+          type: string
+          example: Maria Souza
+        address:
+          type: string
+          example: Rua das Flores, 123, São Paulo - SP
+        lat:
+          type: number
+          format: float
+          example: -23.5505
+        lng:
+          type: number
+          format: float
+          example: -46.6333
+        notification_radius_km:
+          type: integer
+          example: 5
+
+    # ── Pet ─────────────────────────────────────────────────────────────────
+    Pet:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        name:
+          type: string
+          example: Rex
+        species:
+          type: string
+          enum: [dog, cat, other]
+          example: dog
+        breed:
+          type: string
+          example: Labrador
+        color:
+          type: string
+          example: Caramelo
+        description:
+          type: string
+          example: Usa coleira azul, muito dócil
+        photos:
+          type: array
+          items:
+            type: string
+          example: ["/rails/active_storage/blobs/..."]
+
+    # ── Sighting ────────────────────────────────────────────────────────────
+    Sighting:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 15
+        saw_it:
+          type: boolean
+          example: true
+        reporter_name:
+          type: string
+          example: Carlos Lima
+        address:
+          type: string
+          example: Av. Paulista, 900, São Paulo - SP
+        description:
+          type: string
+          example: Vi o cachorro perto da padaria
+        seen_at:
+          type: string
+          format: date-time
+          example: "2026-04-17T14:30:00.000Z"
+        lat:
+          type: number
+          format: float
+          nullable: true
+          example: -23.5617
+        lng:
+          type: number
+          format: float
+          nullable: true
+          example: -46.6560
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Announcement (summary) ───────────────────────────────────────────────
+    AnnouncementSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 3
+        status:
+          type: string
+          enum: [active, found, closed]
+          example: active
+        last_seen_address:
+          type: string
+          example: Rua Augusta, 500, São Paulo - SP
+        last_seen_at:
+          type: string
+          format: date-time
+          example: "2026-04-17T08:00:00.000Z"
+        created_at:
+          type: string
+          format: date-time
+        lat:
+          type: number
+          format: float
+          nullable: true
+          example: -23.5540
+        lng:
+          type: number
+          format: float
+          nullable: true
+          example: -46.6490
+        pet:
+          $ref: '#/components/schemas/Pet'
+        owner:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+
+    # ── Announcement (detail) ────────────────────────────────────────────────
+    AnnouncementDetail:
+      allOf:
+        - $ref: '#/components/schemas/AnnouncementSummary'
+        - type: object
+          properties:
+            description:
+              type: string
+              example: Sumiu ontem à tarde no parque
+            notification_radius_km:
+              type: integer
+              example: 5
+            sightings_count:
+              type: integer
+              example: 2
+            sightings:
+              type: array
+              items:
+                $ref: '#/components/schemas/Sighting'
+
+paths:
+  # ════════════════════════════════════════════════════════════════════════════
+  # AUTH
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /api/v1/auth/send_otp:
+    post:
+      tags: [Auth]
+      summary: Enviar código OTP via WhatsApp
+      description: Gera um código de 6 dígitos e envia via WhatsApp para o número informado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  example: "+5511999990000"
+      responses:
+        '200':
+          description: Código enviado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Código enviado para +5511999990000"
+        '422':
+          description: Telefone não informado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Falha ao enviar via WhatsApp
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/verify_otp:
+    post:
+      tags: [Auth]
+      summary: Verificar código OTP e obter JWT
+      description: |
+        Verifica o código OTP enviado via WhatsApp. Se o código estiver correto,
+        cria ou encontra o usuário e retorna um token JWT.
+        Informe `name` apenas no primeiro acesso (cadastro automático).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, code]
+              properties:
+                phone:
+                  type: string
+                  example: "+5511999990000"
+                code:
+                  type: string
+                  example: "123456"
+                name:
+                  type: string
+                  description: Nome do usuário (usado apenas no primeiro acesso)
+                  example: João Silva
+      responses:
+        '200':
+          description: Autenticado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiJ9..."
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Código inválido ou expirado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Parâmetros ausentes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/auth/sign_out:
+    delete:
+      tags: [Auth]
+      summary: Revogar token JWT (logout)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Logout realizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: Logout realizado
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # USERS
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /api/v1/me:
+    get:
+      tags: [Usuário]
+      summary: Perfil do usuário autenticado
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Perfil retornado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags: [Usuário]
+      summary: Atualizar nome do usuário autenticado
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: João Mangilli
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # SUBSCRIBERS
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /api/v1/subscribers:
+    post:
+      tags: [Subscribers]
+      summary: Cadastrar para receber alertas via WhatsApp
+      description: |
+        Cria ou atualiza um subscriber. Não exige autenticação — qualquer pessoa
+        pode se cadastrar para receber alertas de pets perdidos na sua área.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, name, address]
+              properties:
+                phone:
+                  type: string
+                  example: "+5511999990000"
+                name:
+                  type: string
+                  example: Maria Souza
+                address:
+                  type: string
+                  example: Rua das Flores, 123, São Paulo - SP
+                lat:
+                  type: number
+                  format: float
+                  example: -23.5505
+                lng:
+                  type: number
+                  format: float
+                  example: -46.6333
+                notification_radius_km:
+                  type: integer
+                  example: 5
+      responses:
+        '201':
+          description: Cadastro realizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Subscriber'
+        '422':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/subscribers/{id}:
+    put:
+      tags: [Subscribers]
+      summary: Atualizar dados do subscriber
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                address:
+                  type: string
+                lat:
+                  type: number
+                  format: float
+                lng:
+                  type: number
+                  format: float
+                notification_radius_km:
+                  type: integer
+      responses:
+        '200':
+          description: Cadastro atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Subscriber'
+        '404':
+          description: Cadastro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Subscribers]
+      summary: Descadastrar (parar de receber alertas)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Cadastro removido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: Cadastro removido com sucesso
+        '404':
+          description: Cadastro não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # ANNOUNCEMENTS
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /api/v1/announcements:
+    get:
+      tags: [Anúncios]
+      summary: Listar anúncios ativos
+      description: Retorna até 50 anúncios com status `active`, ordenados pelo mais recente.
+      responses:
+        '200':
+          description: Lista de anúncios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AnnouncementSummary'
+
+    post:
+      tags: [Anúncios]
+      summary: Criar anúncio de pet perdido
+      description: |
+        Cria um novo anúncio e dispara notificações WhatsApp para todos os subscribers
+        dentro do raio configurado. Requer autenticação.
+
+        **Pet:** passe `pet_id` para usar um pet existente, ou passe os campos dentro
+        de `pet[...]` para criar um novo pet automaticamente.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [last_seen_address, last_seen_at]
+              properties:
+                pet_id:
+                  type: integer
+                  description: ID de um pet existente (alternativa a pet[...])
+                  example: 7
+                pet:
+                  type: object
+                  description: Dados do pet (usado quando não há pet_id)
+                  required: [name, species]
+                  properties:
+                    name:
+                      type: string
+                      example: Rex
+                    species:
+                      type: string
+                      enum: [dog, cat, other]
+                      example: dog
+                    breed:
+                      type: string
+                      example: Labrador
+                    color:
+                      type: string
+                      example: Caramelo
+                    description:
+                      type: string
+                      example: Usa coleira azul
+                description:
+                  type: string
+                  example: Sumiu ontem à tarde no parque
+                last_seen_address:
+                  type: string
+                  example: Rua Augusta, 500, São Paulo - SP
+                last_seen_at:
+                  type: string
+                  format: date-time
+                  example: "2026-04-17T08:00:00.000Z"
+                lat:
+                  type: number
+                  format: float
+                  description: Latitude do local onde foi visto pela última vez
+                  example: -23.5540
+                lng:
+                  type: number
+                  format: float
+                  description: Longitude do local onde foi visto pela última vez
+                  example: -46.6490
+                notification_radius_km:
+                  type: integer
+                  description: Raio em km para notificar subscribers (padrão 5)
+                  example: 5
+      responses:
+        '201':
+          description: Anúncio criado e notificações enfileiradas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnnouncementDetail'
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/announcements/{id}:
+    get:
+      tags: [Anúncios]
+      summary: Detalhe de um anúncio
+      description: Retorna o anúncio com todos os dados do pet e lista de avistamentos.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalhe do anúncio
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnnouncementDetail'
+        '404':
+          description: Anúncio não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags: [Anúncios]
+      summary: Atualizar status ou descrição do anúncio
+      description: |
+        Apenas o dono do anúncio pode atualizá-lo. Use para marcar o pet como
+        encontrado (`status: found`) ou encerrar o anúncio (`status: closed`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, found, closed]
+                  example: found
+                description:
+                  type: string
+                  example: Atualização — visto na Av. Paulista
+      responses:
+        '200':
+          description: Anúncio atualizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AnnouncementDetail'
+        '401':
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Sem permissão (não é o dono)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Anúncio não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # SIGHTINGS
+  # ════════════════════════════════════════════════════════════════════════════
+
+  /api/v1/announcements/{announcement_id}/sightings:
+    get:
+      tags: [Avistamentos]
+      summary: Listar avistamentos de um anúncio
+      parameters:
+        - name: announcement_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de avistamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Sighting'
+        '404':
+          description: Anúncio não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Avistamentos]
+      summary: Reportar avistamento
+      description: |
+        Qualquer pessoa pode reportar um avistamento — autenticação é opcional.
+        Se autenticado, o nome do usuário é usado automaticamente.
+        Se anônimo, `reporter_name` é obrigatório.
+      parameters:
+        - name: announcement_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      security:
+        - BearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [saw_it]
+              properties:
+                saw_it:
+                  type: boolean
+                  example: true
+                reporter_name:
+                  type: string
+                  description: Obrigatório para usuários não autenticados
+                  example: Carlos Lima
+                reporter_phone:
+                  type: string
+                  example: "+5511988880000"
+                address:
+                  type: string
+                  example: Av. Paulista, 900, São Paulo - SP
+                description:
+                  type: string
+                  example: Vi o cachorro perto da padaria
+                seen_at:
+                  type: string
+                  format: date-time
+                  example: "2026-04-17T14:30:00.000Z"
+                lat:
+                  type: number
+                  format: float
+                  example: -23.5617
+                lng:
+                  type: number
+                  format: float
+                  example: -46.6560
+      responses:
+        '201':
+          description: Avistamento registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Sighting'
+        '404':
+          description: Anúncio não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

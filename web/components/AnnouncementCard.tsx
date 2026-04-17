@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { AnnouncementSummary } from "@/lib/api";
+import { announcementColor } from "@/lib/announcement-colors";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Procurando",
@@ -24,12 +25,19 @@ const SPECIES_EMOJI: Record<string, string> = {
 export default function AnnouncementCard({ a }: { a: AnnouncementSummary }) {
   const emoji = SPECIES_EMOJI[a.pet.species] || "🐾";
   const date = new Date(a.last_seen_at).toLocaleDateString("pt-BR");
+  const color = a.status === "found" ? "#22c55e" : announcementColor(a.id).hex;
 
   return (
     <Link href={`/announcements/${a.id}`}>
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow cursor-pointer">
         <div className="flex items-start gap-3">
-          <div className="text-3xl">{emoji}</div>
+          <div className="relative text-3xl">
+            {emoji}
+            <span
+              className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white"
+              style={{ backgroundColor: color }}
+            />
+          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-semibold text-gray-900 truncate">{a.pet.name}</span>

@@ -20,6 +20,10 @@ gem "rack-cors"
 # Background jobs
 gem "sidekiq"
 
+# API documentation
+gem "rswag-api"
+gem "rswag-ui"
+
 # HTTP client (Evolution API)
 gem "faraday"
 

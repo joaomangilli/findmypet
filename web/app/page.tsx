@@ -36,21 +36,20 @@ export default function HomePage() {
           >
             Receber alertas
           </Link>
-          {loggedIn ? (
-            <Link
-              href="/announcements/new"
-              className="text-sm bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors font-medium"
-            >
-              + Perdi meu pet
-            </Link>
-          ) : (
+          {!loggedIn && (
             <Link
               href="/login"
-              className="text-sm bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors font-medium"
+              className="text-sm text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
             >
               Entrar
             </Link>
           )}
+          <Link
+            href={loggedIn ? "/announcements/new" : "/login"}
+            className="text-sm bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors font-medium"
+          >
+            Perdi meu pet
+          </Link>
         </nav>
       </header>
 

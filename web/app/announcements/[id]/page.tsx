@@ -135,7 +135,7 @@ export default function AnnouncementDetailPage() {
             <h2 className="font-semibold text-gray-800">
               Avistamentos ({sightings.length})
             </h2>
-            {announcement.status === "active" && (
+            {announcement.status === "active" && !isOwner && (
               <Link
                 href={`/announcements/${id}/sight`}
                 className="text-sm bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
@@ -172,7 +172,7 @@ export default function AnnouncementDetailPage() {
           )}
         </div>
 
-        {announcement.status === "active" && (
+        {announcement.status === "active" && !isOwner && (
           <Link
             href={`/announcements/${id}/sight`}
             className="block w-full text-center bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600 transition-colors"

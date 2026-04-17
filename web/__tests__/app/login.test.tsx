@@ -32,7 +32,7 @@ describe("LoginPage", () => {
   it("renders phone input on first step", () => {
     render(<LoginPage />);
     expect(screen.getByPlaceholderText(/\+55/)).toBeInTheDocument();
-    expect(screen.getByText(/Receber código no WhatsApp/)).toBeInTheDocument();
+    expect(screen.getByText(/Receber código/)).toBeInTheDocument();
   });
 
   it("moves to OTP step after sending code", async () => {
@@ -40,7 +40,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await userEvent.type(screen.getByPlaceholderText(/\+55/), "+5511999000001");
-    fireEvent.click(screen.getByText(/Receber código no WhatsApp/));
+    fireEvent.click(screen.getByText(/Receber código/));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText("123456")).toBeInTheDocument();
@@ -52,7 +52,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await userEvent.type(screen.getByPlaceholderText(/\+55/), "+5511999000001");
-    fireEvent.click(screen.getByText(/Receber código no WhatsApp/));
+    fireEvent.click(screen.getByText(/Receber código/));
 
     await waitFor(() => {
       expect(screen.getByText("Serviço indisponível")).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await userEvent.type(screen.getByPlaceholderText(/\+55/), "+5511999000001");
-    fireEvent.click(screen.getByText(/Receber código no WhatsApp/));
+    fireEvent.click(screen.getByText(/Receber código/));
 
     await waitFor(() => screen.getByPlaceholderText("123456"));
     await userEvent.type(screen.getByPlaceholderText("123456"), "123456");
@@ -87,7 +87,7 @@ describe("LoginPage", () => {
     render(<LoginPage />);
 
     await userEvent.type(screen.getByPlaceholderText(/\+55/), "+5511999000001");
-    fireEvent.click(screen.getByText(/Receber código no WhatsApp/));
+    fireEvent.click(screen.getByText(/Receber código/));
 
     await waitFor(() => screen.getByPlaceholderText("123456"));
     await userEvent.type(screen.getByPlaceholderText("123456"), "000000");
