@@ -95,7 +95,7 @@ jobs:
     name: "Deploy → Render"
     needs: [backend, frontend]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: false # desativado — remover esta linha para reativar o CD
 
     steps:
       # API primeiro — o entrypoint roda db:prepare antes de iniciar o servidor
