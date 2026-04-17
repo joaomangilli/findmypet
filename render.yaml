@@ -54,7 +54,7 @@ services:
     runtime: docker
     dockerfilePath: ./api/Dockerfile
     dockerContext: ./api
-    dockerCommand: bundle exec sidekiq
+    startCommand: bundle exec sidekiq
     plan: starter
     envVars:
       - key: RAILS_ENV
@@ -112,7 +112,6 @@ services:
   # Para manter sempre online: UptimeRobot com ping a cada 10 min.
   - type: web
     name: findmypet-evolution
-    runtime: docker
     image:
       url: docker.io/atendai/evolution-api:latest
     plan: free
