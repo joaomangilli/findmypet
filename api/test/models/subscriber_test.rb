@@ -25,7 +25,7 @@ class SubscriberTest < ActiveSupport::TestCase
       "+5511999000",
       "+551199900000099",
       "+5511 9999 00001",
-      "+551099900001",
+      "+551099900001"
     ]
     invalid_phones.each do |phone|
       sub = build(:subscriber, phone: phone)

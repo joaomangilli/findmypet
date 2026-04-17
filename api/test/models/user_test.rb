@@ -31,7 +31,7 @@ class UserTest < ActiveSupport::TestCase
       "+5511999000",      # curto demais (8 dígitos após DDD)
       "+551199900000099", # longo demais
       "+5511 9999 00001", # formatado (não normalizado)
-      "+551099900001",    # DDD começando com 0
+      "+551099900001"    # DDD começando com 0
     ]
     invalid_phones.each do |phone|
       user = build(:user, phone: phone)
@@ -46,7 +46,7 @@ class UserTest < ActiveSupport::TestCase
     valid_phones = [
       "+5511999000001",   # SP
       "+5521987654321",   # RJ
-      "+5531900000001",   # BH
+      "+5531900000001"   # BH
     ]
     valid_phones.each do |phone|
       user = build(:user, phone: phone)
