@@ -1,5 +1,10 @@
 #!/bin/bash -e
 
+# WORKER=true → run Sidekiq instead of the Rails server
+if [ "${WORKER:-false}" = "true" ]; then
+  exec bundle exec sidekiq
+fi
+
 # If running the rails server then create or migrate existing database
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
   ./bin/rails db:prepare
