@@ -107,11 +107,9 @@ services:
         sync: false        # ex: https://findmypet-web.onrender.com
 
   # ── Evolution API (WhatsApp) ──────────────────────────────────────────────────
-  # Aviso: no plano free o serviço duerme após 15 min de inatividade → perde a
-  # sessão do WhatsApp. Para manter a sessão ativa é necessário plano pago ou
-  # usar um cron externo (ex: UptimeRobot) para fazer ping a cada 10 min.
-  # Nota: disk persistente requer plano pago — sem ele a sessão do WhatsApp é
-  # perdida a cada redeploy (normal para testar, problema em produção).
+  # Sessão persistida no PostgreSQL (mesmo banco do Rails) via Prisma.
+  # O serviço ainda dorme no free tier, mas ao acordar reconecta a sessão do DB.
+  # Para manter sempre online: UptimeRobot com ping a cada 10 min.
   - type: web
     name: findmypet-evolution
     runtime: docker
@@ -125,13 +123,28 @@ services:
         value: apikey
       - key: AUTHENTICATION_API_KEY
         sync: false
+      # Persistência da sessão WhatsApp no PostgreSQL
       - key: DATABASE_ENABLED
+        value: "true"
+      - key: DATABASE_PROVIDER
+        value: postgresql
+      - key: DATABASE_CONNECTION_URI
+        fromDatabase:
+          name: findmypet-db
+          property: connectionString
+      - key: DATABASE_CONNECTION_CLIENT_NAME
+        value: findmypet
+      - key: DATABASE_SAVE_DATA_INSTANCE
+        value: "true"
+      - key: DATABASE_SAVE_DATA_NEW_MESSAGE
         value: "false"
-      - key: STORE_MESSAGES
+      - key: DATABASE_SAVE_MESSAGE_UPDATE
         value: "false"
-      - key: STORE_MESSAGE_UP
+      - key: DATABASE_SAVE_DATA_CONTACTS
         value: "false"
-      - key: STORE_CONTACTS
+      - key: DATABASE_SAVE_DATA_CHATS
         value: "false"
-      - key: STORE_CHATS
+      - key: DATABASE_SAVE_DATA_LABELS
+        value: "false"
+      - key: DATABASE_SAVE_DATA_HISTORIC
         value: "false"

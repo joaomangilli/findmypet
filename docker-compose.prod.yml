@@ -116,17 +116,21 @@ services:
       SERVER_URL: https://wa.${DOMAIN}
       AUTHENTICATION_TYPE: apikey
       AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
-      DATABASE_ENABLED: "false"
-      STORE_MESSAGES: "false"
-      STORE_MESSAGE_UP: "false"
-      STORE_CONTACTS: "false"
-      STORE_CHATS: "false"
-    volumes:
-      - evolution_data:/evolution/instances
+      # Persistência da sessão WhatsApp no PostgreSQL
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/findmypet_production
+      DATABASE_CONNECTION_CLIENT_NAME: findmypet
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
 
 volumes:
   postgres_data:
   redis_data:
-  evolution_data:
   caddy_data:
   caddy_config:
